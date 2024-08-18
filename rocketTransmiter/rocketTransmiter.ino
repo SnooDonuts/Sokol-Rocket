@@ -100,5 +100,5 @@ void loop() {
   Serial.println(parachute);
 
   // Delay before sending the next set of data
-  delay(100);  // Send data every second
+  delay(1000);  // Send data every second
 }

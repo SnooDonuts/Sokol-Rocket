@@ -1,4 +1,5 @@
 
+
 import serial
 import serial.tools.list_ports
 import time
@@ -11,6 +12,7 @@ import receiverReader
 from functools import wraps
 import csv  # Import the csv module
 import re   # Import the regular expression module
+from dashboard import run_dashboard
 
 # Set up logging
 startTime: int = time.time_ns()
@@ -41,8 +43,6 @@ logger.addHandler(console_handler)
 csv_file_path = './rocket_data.csv'
 
 # Open the CSV file in append mode and set up the writer
-csv_file = open(csv_file_path, mode='w', newline='')
-csv_file.close()
 csv_file = open(csv_file_path, mode='a', newline='')
 csv_writer = csv.writer(csv_file)
 
@@ -124,8 +124,11 @@ async def readData() -> None:
             
             while True:
                 if ser.in_waiting > 0:
-                    data = ser.readline().decode('utf-8').rstrip()
-                    
+                    try:
+                        data = ser.readline().decode('utf-8').rstrip()
+                    except Exception as e:
+                        logger.error(f"Error decoding to utf-8: {e}")
+                                        
                     # Validate the received data
                     if validate_data(data):
                         # Write the data to the CSV file with the current timestamp
@@ -139,14 +142,19 @@ async def readData() -> None:
     else:
         logger.error("Exiting program due to failure to connect to Arduino.")
 
-async def web() -> None:
-    pass
+async def start_dashboard():
+    # Running the Dash server in the event loop
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, run_dashboard)
 
 # Main function to run the tasks
 async def main():
-    await asyncio.gather(
-        readData()
-    )
+    # Start the dashboard and the data reading concurrently
+    dashboard_task = asyncio.create_task(start_dashboard())
+    read_data_task = asyncio.create_task(readData())
+
+    # Wait for both tasks to complete
+    await asyncio.gather(dashboard_task, read_data_task)
 
 if __name__ == "__main__":
     asyncio.run(main())
